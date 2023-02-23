@@ -83,8 +83,9 @@ func WithUpdate(pkgname string) RootOption {
 	}
 }
 
-func CmdRoot(name string, opts ...RootOption) *cobra.Command {
+func CmdRoot(name, short string, opts ...RootOption) *cobra.Command {
 	cmdRoot.Use = name
+	cmdRoot.Short = short
 
 	var flagDebug, flagTrace bool
 	cmdRoot.PersistentFlags().BoolVar(&flagDebug, "debug", false, "Enable debug logging for this tool.")
