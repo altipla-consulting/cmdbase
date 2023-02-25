@@ -101,5 +101,9 @@ func CmdRoot(name, short string, opts ...RootOption) *cobra.Command {
 		return nil
 	}
 
+	for _, opt := range opts {
+		opt(name)
+	}
+
 	return cmdRoot
 }
