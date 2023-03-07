@@ -1,3 +1,4 @@
+// Package cmdbase provides base initialization and helpers for our CLI applications.
 package cmdbase
 
 import (
@@ -8,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/natefinch/lumberjack"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"libs.altipla.consulting/errors"
@@ -17,8 +19,11 @@ var cmdRoot = &cobra.Command{
 	SilenceUsage: true,
 }
 
+// RootOption configures the root command.
 type RootOption func(name string)
 
+// WithInstall configures an install command that installs the autocomplete script
+// in the user's bashrc.
 func WithInstall() RootOption {
 	return func(name string) {
 		cmdInstall := &cobra.Command{
@@ -61,6 +66,7 @@ func WithInstall() RootOption {
 	}
 }
 
+// WithUpdate configures an update command that installs using Go the remote repository.
 func WithUpdate(pkgname string) RootOption {
 	return func(pkgname string) {
 		cmdUpdate := &cobra.Command{
@@ -83,6 +89,40 @@ func WithUpdate(pkgname string) RootOption {
 	}
 }
 
+type loggerHook struct {
+	logger    *lumberjack.Logger
+	formatter log.Formatter
+}
+
+func (hook *loggerHook) Levels() []log.Level {
+	return log.AllLevels
+}
+
+func (hook *loggerHook) Fire(entry *log.Entry) error {
+	f, err := hook.formatter.Format(entry)
+	if err != nil {
+		return err
+	}
+	_, err = hook.logger.Write(f)
+	return err
+}
+
+// WithFileLogger configures logrus to emit logs to a file with rotation.
+func WithFileLogger(config func() *lumberjack.Logger) RootOption {
+	return func(pkgname string) {
+		prerun := cmdRoot.PersistentPreRunE
+		cmdRoot.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+			file := config()
+			log.AddHook(&loggerHook{
+				logger:    file,
+				formatter: new(log.JSONFormatter),
+			})
+			return errors.Trace(prerun(cmd, args))
+		}
+	}
+}
+
+// CmdRoot creates a new root command. Can only be called once per application.
 func CmdRoot(name, short string, opts ...RootOption) *cobra.Command {
 	cmdRoot.Use = name
 	cmdRoot.Short = short
@@ -91,11 +131,14 @@ func CmdRoot(name, short string, opts ...RootOption) *cobra.Command {
 	cmdRoot.PersistentFlags().BoolVar(&flagDebug, "debug", false, "Enable debug logging for this tool.")
 	cmdRoot.PersistentFlags().BoolVar(&flagTrace, "trace", false, "Enable trace logging for this tool.")
 	cmdRoot.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		if flagDebug {
-			log.SetLevel(log.DebugLevel)
-		}
-		if flagTrace {
+		log.SetFormatter(new(log.TextFormatter))
+		switch {
+		case flagTrace:
 			log.SetLevel(log.TraceLevel)
+		case flagDebug:
+			log.SetLevel(log.DebugLevel)
+		default:
+			log.SetLevel(log.InfoLevel)
 		}
 
 		return nil
