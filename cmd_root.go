@@ -108,12 +108,16 @@ func (hook *loggerHook) Fire(entry *log.Entry) error {
 }
 
 // WithFileLogger configures logrus to emit logs to a file with rotation.
-func WithFileLogger(config func() *lumberjack.Logger) RootOption {
+func WithFileLogger(config func() (*lumberjack.Logger, error)) RootOption {
 	return func(pkgname string) {
 		prerun := cmdRoot.PersistentPreRunE
 		cmdRoot.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+			logger, err := config()
+			if err != nil {
+				return errors.Trace(err)
+			}
 			log.AddHook(&loggerHook{
-				logger:    config(),
+				logger:    logger,
 				formatter: new(log.JSONFormatter),
 			})
 			return errors.Trace(prerun(cmd, args))
