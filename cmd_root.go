@@ -112,9 +112,8 @@ func WithFileLogger(config func() *lumberjack.Logger) RootOption {
 	return func(pkgname string) {
 		prerun := cmdRoot.PersistentPreRunE
 		cmdRoot.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-			file := config()
 			log.AddHook(&loggerHook{
-				logger:    file,
+				logger:    config(),
 				formatter: new(log.JSONFormatter),
 			})
 			return errors.Trace(prerun(cmd, args))
