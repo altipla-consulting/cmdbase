@@ -3,8 +3,8 @@ package cmdbase
 import (
 	"os"
 
+	"github.com/altipla-consulting/errors"
 	log "github.com/sirupsen/logrus"
-	"libs.altipla.consulting/errors"
 )
 
 func Main() {

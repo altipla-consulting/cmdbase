@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/altipla-consulting/errors"
 	"github.com/natefinch/lumberjack"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"libs.altipla.consulting/errors"
 )
 
 var cmdRoot = &cobra.Command{
