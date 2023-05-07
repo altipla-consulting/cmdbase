@@ -15,21 +15,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var cmdRoot = &cobra.Command{
-	SilenceUsage: true,
-}
-
 // RootOption configures the root command.
-type RootOption func(name string)
+type RootOption func(cmdRoot *cobra.Command)
 
 // WithInstall configures an install command that installs the autocomplete script
 // in the user's bashrc.
 func WithInstall() RootOption {
-	return func(name string) {
+	return func(cmdRoot *cobra.Command) {
 		cmdInstall := &cobra.Command{
 			Use: "install",
 			RunE: func(cmd *cobra.Command, args []string) error {
-				installLine := `. <(` + name + ` completion bash)`
+				installLine := `. <(` + cmdRoot.Use + ` completion bash)`
 
 				home, err := os.UserHomeDir()
 				if err != nil {
@@ -57,7 +53,7 @@ func WithInstall() RootOption {
 				fmt.Fprintln(f, installLine)
 
 				log.Info("CLI autocomplete is now installed in ~/.bashrc")
-				log.Info("Restart your terminal to finish your setup")
+				log.Infof("Restart the shell to have '%s' available as a command.", cmdRoot.Use)
 
 				return nil
 			},
@@ -68,7 +64,7 @@ func WithInstall() RootOption {
 
 // WithUpdate configures an update command that installs using Go the remote repository.
 func WithUpdate(pkgname string) RootOption {
-	return func(pkgname string) {
+	return func(cmdRoot *cobra.Command) {
 		cmdUpdate := &cobra.Command{
 			Use: "update",
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -109,7 +105,7 @@ func (hook *loggerHook) Fire(entry *log.Entry) error {
 
 // WithFileLogger configures logrus to emit logs to a file with rotation.
 func WithFileLogger(config func() (*lumberjack.Logger, error)) RootOption {
-	return func(pkgname string) {
+	return func(cmdRoot *cobra.Command) {
 		prerun := cmdRoot.PersistentPreRunE
 		cmdRoot.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 			logger, err := config()
@@ -127,8 +123,12 @@ func WithFileLogger(config func() (*lumberjack.Logger, error)) RootOption {
 
 // CmdRoot creates a new root command. Can only be called once per application.
 func CmdRoot(name, short string, opts ...RootOption) *cobra.Command {
-	cmdRoot.Use = name
-	cmdRoot.Short = short
+	cmdRoot := &cobra.Command{
+		SilenceUsage: true,
+		Use:          name,
+		Short:        short,
+	}
+	executeMain = cmdRoot
 
 	var flagDebug, flagTrace bool
 	cmdRoot.PersistentFlags().BoolVar(&flagDebug, "debug", false, "Enable debug logging for this tool.")
@@ -148,7 +148,7 @@ func CmdRoot(name, short string, opts ...RootOption) *cobra.Command {
 	}
 
 	for _, opt := range opts {
-		opt(name)
+		opt(cmdRoot)
 	}
 
 	return cmdRoot

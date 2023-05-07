@@ -3,8 +3,10 @@ module github.com/altipla-consulting/cmdbase
 go 1.19
 
 require (
+	github.com/altipla-consulting/box v0.2.0
 	github.com/altipla-consulting/errors v1.2.5
 	github.com/kyokomi/emoji/v2 v2.2.12
+	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.7.0
