@@ -129,6 +129,9 @@ func WithVersion(version string) cmdbase.RootOption {
 			if cmd.Use == "install-script" || cmd.Use == "upgrade" {
 				return nil
 			}
+			if cmd.Parent() != nil && cmd.Parent().Use == "completion" {
+				return nil
+			}
 
 			if version == "dev" || os.Getenv("CI") != "" {
 				log.Trace("Skip version check against production.")
