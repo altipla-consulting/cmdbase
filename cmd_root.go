@@ -23,7 +23,9 @@ type RootOption func(cmdRoot *cobra.Command)
 func WithInstall() RootOption {
 	return func(cmdRoot *cobra.Command) {
 		cmdInstall := &cobra.Command{
-			Use: "install",
+			Use:     "install",
+			Example: cmdRoot.Use + " install",
+			Short:   "Install autocomplete in the user's bashrc.",
 			RunE: func(cmd *cobra.Command, args []string) error {
 				installLine := `. <(` + cmdRoot.Use + ` completion bash)`
 
