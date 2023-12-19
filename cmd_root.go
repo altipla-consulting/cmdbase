@@ -3,30 +3,34 @@ package cmdbase
 
 import (
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/altipla-consulting/cmdbase/internal/root"
 	"github.com/altipla-consulting/errors"
-	"github.com/natefinch/lumberjack"
-	log "github.com/sirupsen/logrus"
+	"github.com/lmittmann/tint"
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // RootOption configures the root command.
-type RootOption func(cmdRoot *cobra.Command)
+type RootOption func(settings *root.Settings) error
 
 // WithInstall configures an install command that installs the autocomplete script
 // in the user's bashrc.
 func WithInstall() RootOption {
-	return func(cmdRoot *cobra.Command) {
+	return func(settings *root.Settings) error {
 		cmdInstall := &cobra.Command{
 			Use:     "install",
-			Example: cmdRoot.Use + " install",
+			Example: settings.CmdRoot.Use + " install",
 			Short:   "Install autocomplete in the user's bashrc.",
 			RunE: func(cmd *cobra.Command, args []string) error {
-				installLine := `. <(` + cmdRoot.Use + ` completion bash)`
+				installLine := `. <(` + settings.CmdRoot.Use + ` completion bash)`
 
 				home, err := os.UserHomeDir()
 				if err != nil {
@@ -53,19 +57,21 @@ func WithInstall() RootOption {
 				fmt.Fprintln(f)
 				fmt.Fprintln(f, installLine)
 
-				log.Info("CLI autocomplete is now installed in ~/.bashrc")
-				log.Infof("Restart the shell to have '%s' available as a command.", cmdRoot.Use)
+				slog.Info("CLI autocomplete is now installed in ~/.bashrc")
+				slog.Info(fmt.Sprintf("Restart the shell to have '%s' available as a command.", settings.CmdRoot.Use))
 
 				return nil
 			},
 		}
-		cmdRoot.AddCommand(cmdInstall)
+		settings.CmdRoot.AddCommand(cmdInstall)
+
+		return nil
 	}
 }
 
 // WithUpdate configures an update command that installs using Go the remote repository.
 func WithUpdate(pkgname string) RootOption {
-	return func(cmdRoot *cobra.Command) {
+	return func(settings *root.Settings) error {
 		cmdUpdate := &cobra.Command{
 			Use: "update",
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -82,43 +88,21 @@ func WithUpdate(pkgname string) RootOption {
 				return nil
 			},
 		}
-		cmdRoot.AddCommand(cmdUpdate)
+		settings.CmdRoot.AddCommand(cmdUpdate)
+		return nil
 	}
-}
-
-type loggerHook struct {
-	logger    *lumberjack.Logger
-	formatter log.Formatter
-}
-
-func (hook *loggerHook) Levels() []log.Level {
-	return log.AllLevels
-}
-
-func (hook *loggerHook) Fire(entry *log.Entry) error {
-	f, err := hook.formatter.Format(entry)
-	if err != nil {
-		return err
-	}
-	_, err = hook.logger.Write(f)
-	return err
 }
 
 // WithFileLogger configures logrus to emit logs to a file with rotation.
 func WithFileLogger(config func() (*lumberjack.Logger, error)) RootOption {
-	return func(cmdRoot *cobra.Command) {
-		prerun := cmdRoot.PersistentPreRunE
-		cmdRoot.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-			logger, err := config()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			log.AddHook(&loggerHook{
-				logger:    logger,
-				formatter: new(log.JSONFormatter),
-			})
-			return errors.Trace(prerun(cmd, args))
+	return func(settings *root.Settings) error {
+		logger, err := config()
+		if err != nil {
+			return errors.Trace(err)
 		}
+		settings.FileLogger = logger
+
+		return nil
 	}
 }
 
@@ -131,25 +115,31 @@ func CmdRoot(name, short string, opts ...RootOption) *cobra.Command {
 	}
 	executeMain = cmdRoot
 
-	var flagDebug, flagTrace bool
+	var flagDebug bool
 	cmdRoot.PersistentFlags().BoolVar(&flagDebug, "debug", false, "Enable debug logging for this tool.")
-	cmdRoot.PersistentFlags().BoolVar(&flagTrace, "trace", false, "Enable trace logging for this tool.")
 	cmdRoot.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		log.SetFormatter(new(log.TextFormatter))
-		switch {
-		case flagTrace:
-			log.SetLevel(log.TraceLevel)
-		case flagDebug:
-			log.SetLevel(log.DebugLevel)
-		default:
-			log.SetLevel(log.InfoLevel)
+		settings := &root.Settings{
+			CmdRoot: cmdRoot,
+		}
+		for _, opt := range opts {
+			opt(settings)
 		}
 
-		return nil
-	}
+		level := slog.LevelInfo
+		if flagDebug {
+			level = slog.LevelDebug
+		}
+		var w io.Writer = os.Stderr
+		if settings.FileLogger != nil {
+			w = io.MultiWriter(os.Stderr, settings.FileLogger)
+		}
+		handler := slog.New(tint.NewHandler(w, &tint.Options{
+			Level:   level,
+			NoColor: !isatty.IsTerminal(os.Stderr.Fd()),
+		}))
+		slog.SetDefault(handler)
 
-	for _, opt := range opts {
-		opt(cmdRoot)
+		return nil
 	}
 
 	return cmdRoot

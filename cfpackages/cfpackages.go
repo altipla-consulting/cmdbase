@@ -19,6 +19,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/altipla-consulting/cmdbase/internal/root"
 	"github.com/altipla-consulting/cmdbase"
 )
 
@@ -28,10 +29,10 @@ var bashInstallScript string
 // WithVersion configures install and upgrade commands through our internal
 // Cloudflare R2 packages repository to keep the app updated.
 func WithVersion(version string) cmdbase.RootOption {
-	return func(cmdRoot *cobra.Command) {
+	return func(settings *root.Settings) error {
 		var cmdInstallScript = &cobra.Command{
 			Use:       "install-script",
-			Example:   cmdRoot.Use + " install-script bash",
+			Example:   settings.CmdRoot.Use + " install-script bash",
 			Short:     "Emit an install script from the packages repository.",
 			Args:      cobra.ExactArgs(1),
 			ValidArgs: []string{"bash"},
@@ -54,7 +55,7 @@ func WithVersion(version string) cmdbase.RootOption {
 			data := struct {
 				App string
 			}{
-				App: cmdRoot.Use,
+				App: settings.CmdRoot.Use,
 			}
 			if err := tmpl.Execute(cmd.OutOrStdout(), data); err != nil {
 				return errors.Trace(err)
@@ -62,17 +63,17 @@ func WithVersion(version string) cmdbase.RootOption {
 
 			return nil
 		}
-		cmdRoot.AddCommand(cmdInstallScript)
+		settings.CmdRoot.AddCommand(cmdInstallScript)
 
 		var cmdUpgrade = &cobra.Command{
 			Use:     "upgrade",
-			Example: cmdRoot.Use + " upgrade",
+			Example: settings.CmdRoot.Use + " upgrade",
 			Short:   "Upgrade to the latest version.",
 			Args:    cobra.NoArgs,
 		}
 		cmdUpgrade.RunE = func(cmd *cobra.Command, args []string) error {
 			log.Trace("Checking latest version")
-			endpoint := "https://packages.altipla.consulting/" + cmdRoot.Use + "/stable.txt"
+			endpoint := "https://packages.altipla.consulting/" + settings.CmdRoot.Use + "/stable.txt"
 			req, err := http.NewRequestWithContext(cmd.Context(), http.MethodGet, endpoint, nil)
 			if err != nil {
 				return errors.Trace(err)
@@ -94,7 +95,7 @@ func WithVersion(version string) cmdbase.RootOption {
 				return nil
 			}
 
-			run := exec.CommandContext(cmd.Context(), "/bin/bash", "-c", "curl 'https://packages.altipla.consulting/"+cmdRoot.Use+"/install.sh' | bash")
+			run := exec.CommandContext(cmd.Context(), "/bin/bash", "-c", "curl 'https://packages.altipla.consulting/"+settings.CmdRoot.Use+"/install.sh' | bash")
 			run.Stdout = os.Stdout
 			run.Stderr = os.Stderr
 			run.Stdin = os.Stdin
@@ -104,11 +105,11 @@ func WithVersion(version string) cmdbase.RootOption {
 
 			return nil
 		}
-		cmdRoot.AddCommand(cmdUpgrade)
+		settings.CmdRoot.AddCommand(cmdUpgrade)
 
 		var cmdVersion = &cobra.Command{
 			Use:     "version",
-			Example: cmdRoot.Use + " version",
+			Example: settings.CmdRoot.Use + " version",
 			Short:   "Show the current version.",
 			Args:    cobra.NoArgs,
 		}
@@ -116,10 +117,10 @@ func WithVersion(version string) cmdbase.RootOption {
 			fmt.Println(version)
 			return nil
 		}
-		cmdRoot.AddCommand(cmdVersion)
+		settings.CmdRoot.AddCommand(cmdVersion)
 
-		prerun := cmdRoot.PersistentPreRunE
-		cmdRoot.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		prerun := settings.CmdRoot.PersistentPreRunE
+		settings.CmdRoot.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 			if prerun != nil {
 				if err := prerun(cmd, args); err != nil {
 					return errors.Trace(err)
@@ -142,7 +143,7 @@ func WithVersion(version string) cmdbase.RootOption {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			cacheFilename := filepath.Join(cachedir, cmdRoot.Use, "last-version-check")
+			cacheFilename := filepath.Join(cachedir, settings.CmdRoot.Use, "last-version-check")
 
 			content, err := os.ReadFile(cacheFilename)
 			if err != nil && !os.IsNotExist(err) {
@@ -165,7 +166,7 @@ func WithVersion(version string) cmdbase.RootOption {
 			log.Trace("Checking latest version")
 			ctxtimeout, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 			defer cancel()
-			endpoint := "https://packages.altipla.consulting/" + cmdRoot.Use + "/stable.txt"
+			endpoint := "https://packages.altipla.consulting/" + settings.CmdRoot.Use + "/stable.txt"
 			req, err := http.NewRequestWithContext(ctxtimeout, http.MethodGet, endpoint, nil)
 			if err != nil {
 				return errors.Trace(err)
@@ -190,7 +191,7 @@ func WithVersion(version string) cmdbase.RootOption {
 			if remoteVersion := strings.TrimSpace(string(remote)); remoteVersion != version {
 				var o box.Box
 				o.AddLine("Update available. ", aurora.Red(version), " -> ", aurora.Green(remoteVersion))
-				o.AddLine("Run ", aurora.Blue(cmdRoot.Use+" upgrade"), " to update.")
+				o.AddLine("Run ", aurora.Blue(settings.CmdRoot.Use+" upgrade"), " to update.")
 				o.Render()
 			} else {
 				log.
@@ -207,6 +208,8 @@ func WithVersion(version string) cmdbase.RootOption {
 
 			return nil
 		}
+
+		return nil
 	}
 }
 
