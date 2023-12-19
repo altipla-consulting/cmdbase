@@ -3,7 +3,6 @@ package cmdbase
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,7 +32,7 @@ func WithInstall() RootOption {
 				if err != nil {
 					return errors.Trace(err)
 				}
-				content, err := ioutil.ReadFile(filepath.Join(home, ".bashrc"))
+				content, err := os.ReadFile(filepath.Join(home, ".bashrc"))
 				if err != nil {
 					return errors.Trace(err)
 				}
