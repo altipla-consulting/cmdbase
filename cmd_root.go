@@ -122,7 +122,9 @@ func CmdRoot(name, short string, opts ...RootOption) *cobra.Command {
 			CmdRoot: cmdRoot,
 		}
 		for _, opt := range opts {
-			opt(settings)
+			if err := opt(settings); err != nil {
+				return errors.Trace(err)
+			}
 		}
 
 		level := slog.LevelInfo
