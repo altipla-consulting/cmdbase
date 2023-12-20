@@ -109,9 +109,10 @@ func WithFileLogger(config func() (*lumberjack.Logger, error)) RootOption {
 // CmdRoot creates a new root command. Can only be called once per application.
 func CmdRoot(name, short string, opts ...RootOption) *cobra.Command {
 	cmdRoot := &cobra.Command{
-		SilenceUsage: true,
-		Use:          name,
-		Short:        short,
+		Use:           name,
+		Short:         short,
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 	executeMain = cmdRoot
 
