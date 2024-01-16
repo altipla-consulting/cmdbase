@@ -19,8 +19,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/altipla-consulting/cmdbase/internal/root"
 	"github.com/altipla-consulting/cmdbase"
+	"github.com/altipla-consulting/cmdbase/internal/root"
 )
 
 //go:embed bash.sh

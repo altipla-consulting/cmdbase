@@ -116,16 +116,22 @@ func CmdRoot(name, short string, opts ...RootOption) *cobra.Command {
 	}
 	executeMain = cmdRoot
 
+	settings := &root.Settings{
+		CmdRoot: cmdRoot,
+	}
+	var initErr error
+	for _, opt := range opts {
+		if err := opt(settings); err != nil {
+			initErr = err
+			break
+		}
+	}
+
 	var flagDebug bool
 	cmdRoot.PersistentFlags().BoolVar(&flagDebug, "debug", false, "Enable debug logging for this tool.")
 	cmdRoot.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		settings := &root.Settings{
-			CmdRoot: cmdRoot,
-		}
-		for _, opt := range opts {
-			if err := opt(settings); err != nil {
-				return errors.Trace(err)
-			}
+		if initErr != nil {
+			return errors.Trace(initErr)
 		}
 
 		level := slog.LevelInfo
