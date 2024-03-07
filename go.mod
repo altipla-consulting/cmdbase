@@ -9,7 +9,7 @@ require (
 	github.com/lmittmann/tint v1.0.3
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/mattn/go-isatty v0.0.20
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cobra v1.8.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
