@@ -178,8 +178,7 @@ func WithVersion(version string) cmdbase.RootOption {
 			}
 			defer reply.Body.Close()
 			if reply.StatusCode != http.StatusOK {
-				slog.LogAttrs(nil, slog.LevelDebug, "Error cheking for the latest version",
-					slog.String("status", reply.Status), slog.String("endpoint", endpoint))
+				slog.Debug("Error cheking for the latest version", slog.String("status", reply.Status), slog.String("endpoint", endpoint))
 				return nil
 			}
 			remote, err := io.ReadAll(reply.Body)
@@ -192,8 +191,7 @@ func WithVersion(version string) cmdbase.RootOption {
 				o.AddLine("Run ", aurora.Blue(settings.CmdRoot.Use+" upgrade"), " to update.")
 				o.Render()
 			} else {
-				slog.LogAttrs(nil, slog.LevelDebug, "Already using the latest version",
-					slog.String("local", version), slog.String("remote", remoteVersion))
+				slog.Debug("Already using the latest version", slog.String("local", version), slog.String("remote", remoteVersion))
 				if err := os.MkdirAll(filepath.Dir(cacheFilename), 0700); err != nil {
 					return errors.Trace(err)
 				}
