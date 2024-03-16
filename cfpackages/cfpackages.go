@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -16,7 +17,6 @@ import (
 	"github.com/altipla-consulting/box"
 	"github.com/altipla-consulting/errors"
 	"github.com/logrusorgru/aurora"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/altipla-consulting/cmdbase"
@@ -72,7 +72,7 @@ func WithVersion(version string) cmdbase.RootOption {
 			Args:    cobra.NoArgs,
 		}
 		cmdUpgrade.RunE = func(cmd *cobra.Command, args []string) error {
-			log.Trace("Checking latest version")
+			slog.Debug("Checking latest version")
 			endpoint := "https://packages.altipla.consulting/" + settings.CmdRoot.Use + "/stable.txt"
 			req, err := http.NewRequestWithContext(cmd.Context(), http.MethodGet, endpoint, nil)
 			if err != nil {
@@ -135,7 +135,7 @@ func WithVersion(version string) cmdbase.RootOption {
 			}
 
 			if version == "dev" || os.Getenv("CI") != "" {
-				log.Trace("Skip version check against production.")
+				slog.Debug("Skip version check against production.")
 				return nil
 			}
 
@@ -157,13 +157,13 @@ func WithVersion(version string) cmdbase.RootOption {
 				}
 			}
 			if time.Since(lastCheck) < time.Hour {
-				log.
-					WithField("last-check", lastCheck.Format(time.RFC3339)).
-					Trace("Skip version check because it was checked less than an hour ago.")
+				slog.
+					With("last-check", lastCheck.Format(time.RFC3339)).
+					Debug("Skip version check because it was checked less than an hour ago.")
 				return nil
 			}
 
-			log.Trace("Checking latest version")
+			slog.Debug("Checking latest version")
 			ctxtimeout, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 			defer cancel()
 			endpoint := "https://packages.altipla.consulting/" + settings.CmdRoot.Use + "/stable.txt"
@@ -173,15 +173,12 @@ func WithVersion(version string) cmdbase.RootOption {
 			}
 			reply, err := http.DefaultClient.Do(req)
 			if err != nil {
-				log.WithFields(errors.LogFields(err)).Debug("Error checking for latest version")
+				slog.Debug("Error checking for latest version", slog.String("error", err.Error()))
 				return nil
 			}
 			defer reply.Body.Close()
 			if reply.StatusCode != http.StatusOK {
-				log.
-					WithField("status", reply.Status).
-					WithField("endpoint", endpoint).
-					Debug("Error checking for latest version")
+				slog.Debug("Error cheking for the latest version", slog.String("status", reply.Status), slog.String("endpoint", endpoint))
 				return nil
 			}
 			remote, err := io.ReadAll(reply.Body)
@@ -194,10 +191,7 @@ func WithVersion(version string) cmdbase.RootOption {
 				o.AddLine("Run ", aurora.Blue(settings.CmdRoot.Use+" upgrade"), " to update.")
 				o.Render()
 			} else {
-				log.
-					WithField("local", version).
-					WithField("remote", remoteVersion).
-					Trace("Already using the latest version")
+				slog.Debug("Already using the latest version", slog.String("local", version), slog.String("remote", remoteVersion))
 				if err := os.MkdirAll(filepath.Dir(cacheFilename), 0700); err != nil {
 					return errors.Trace(err)
 				}
