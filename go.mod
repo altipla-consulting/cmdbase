@@ -1,6 +1,6 @@
 module github.com/altipla-consulting/cmdbase
 
-go 1.21
+go 1.26.0
 
 require (
 	github.com/altipla-consulting/box v0.2.0
